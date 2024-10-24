@@ -1,0 +1,255 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import difflib
+import random
+import time
+import mysql.connector
+
+class Patient:
+    def __init__(self, name, age, disease, priority, room):
+        self.name = name
+        self.age = age
+        self.disease = disease
+        self.priority = priority
+        self.room = room
+        self.waiting_time = time.time()  # Record the time when the patient is added
+
+class HospitalManagementSystem:
+    def __init__(self):
+        self.patients = []
+        self.allocated_patients = []
+        self.disease_priority = {
+            "Heart Attack": 1,
+            "Stroke": 2,
+            "Severe Trauma": 3,
+            "Pneumonia": 4,
+            "Fracture": 5,
+            "Appendicitis": 6,
+            "High Fever": 7,
+            "Flu": 8,
+            "Mild Trauma": 9,
+            "Headache": 10,
+            "Common Cold": 11,
+            "Skin Rash": 12,
+            "Diabetes Complications": 3,
+            "Asthma Attack": 2,
+            "Sepsis": 1,
+            "Renal Failure": 3,
+            "Gastroenteritis": 6,
+            "Migraine": 7,
+            "Chickenpox": 8,
+            "Hypertension": 5,
+            "Allergic Reaction": 4,
+            "Burns": 2,
+            "Covid-19": 1,
+            "Cancer": 2,
+        }
+        self.available_rooms = [f"Room {i}" for i in range(1, 31)]
+        self.db_connection = self.connect_to_db()  # Connect to MySQL
+
+    def connect_to_db(self):
+        try:
+            connection = mysql.connector.connect(
+                host="localhost",   # Adjust host if necessary
+                user="root",   # Replace with your MySQL username
+                password="root",  # Replace with your MySQL password
+                database="hospital_db"
+            )
+            print("Database connection successful!")
+            return connection
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            return None
+
+    def add_patient_to_db(self, patient):
+        cursor = self.db_connection.cursor()
+        insert_query = """
+        INSERT INTO allocated_patients (name, age, disease, priority, room)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        cursor.execute(insert_query, (patient.name, patient.age, patient.disease, patient.priority, patient.room))
+        self.db_connection.commit()
+
+    def find_closest_disease(self, disease):
+        diseases = list(self.disease_priority.keys())
+        closest_match = difflib.get_close_matches(disease, diseases, n=1)
+        if closest_match:
+            return closest_match[0]
+        return None
+
+    def add_patient(self, name, age, disease):
+        normalized_disease = disease.title()  # Normalize disease name to title case
+        closest_disease = self.find_closest_disease(normalized_disease)
+        if closest_disease:
+            priority = self.disease_priority[closest_disease]
+        else:
+            priority = 13  # Default priority if no close match is found
+
+        if self.available_rooms:
+            room = random.choice(self.available_rooms)  # Randomly allocate an available room
+            self.available_rooms.remove(room)  # Remove the allocated room from available rooms
+        else:
+            room = "No available room"
+
+        patient = Patient(name, age, normalized_disease, priority, room)
+        self.patients.append(patient)
+        self.patients.sort(key=lambda x: x.priority)
+
+    def allocate_room(self):
+        if self.patients:
+            patient = self.patients.pop(0)
+            self.allocated_patients.append(patient)  # Add to allocated patients list
+            if self.db_connection:
+                self.add_patient_to_db(patient)  # Save to database
+            return patient
+        return None
+
+    def update_priorities(self):
+        current_time = time.time()
+        for patient in self.patients:
+            waiting_time = current_time - patient.waiting_time
+            if waiting_time > 1 * 60:  # 1 minute waiting time
+                if patient.priority > 1:  # Improve priority (lower number)
+                    patient.priority -= 1
+                    patient.waiting_time = current_time  # Reset waiting time after priority boost
+        self.patients.sort(key=lambda x: x.priority)
+
+
+class GUI:
+    def __init__(self, root):
+        self.hms = HospitalManagementSystem()
+        self.root = root
+        self.root.title("Hospital Management System")
+        self.root.configure(bg="#D6EAF8")  # Light blue background color
+
+        self.setup_gui()
+        self.update_time()  # Start the dynamic clock
+        self.periodic_priority_update()  # Start periodic priority updates
+
+    def setup_gui(self):
+        # Dynamic clock label
+        self.time_label = tk.Label(self.root, text="", font=("Helvetica", 14), bg="#D6EAF8", fg="#1C2833")
+        self.time_label.pack(pady=10)
+
+        # Set up the notebook (tabs)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(pady=10, expand=True)
+
+        # Patient Details tab
+        self.details_frame = ttk.Frame(self.notebook, width=400, height=280, relief='groove', borderwidth=2)
+        self.notebook.add(self.details_frame, text="Patient Details")
+        self.setup_details_tab()
+
+        # Patient List tab
+        self.list_frame = ttk.Frame(self.notebook, width=400, height=280, relief='groove', borderwidth=2)
+        self.notebook.add(self.list_frame, text="Patient List")
+        self.setup_list_tab()
+
+        # Allocated Patients tab
+        self.allocated_frame = ttk.Frame(self.notebook, width=400, height=280, relief='groove', borderwidth=2)
+        self.notebook.add(self.allocated_frame, text="Allocated Patients")
+        self.setup_allocated_tab()
+
+    def setup_details_tab(self):
+        # Labels and Entries
+        self.name_label = tk.Label(self.details_frame, text="Patient Name:", bg="#D6EAF8", fg="#1C2833")
+        self.name_label.grid(row=0, column=0, padx=10, pady=10)
+        self.name_entry = tk.Entry(self.details_frame)
+        self.name_entry.grid(row=0, column=1, padx=10, pady=10)
+
+        self.age_label = tk.Label(self.details_frame, text="Age:", bg="#D6EAF8", fg="#1C2833")
+        self.age_label.grid(row=1, column=0, padx=10, pady=10)
+        self.age_entry = tk.Entry(self.details_frame)
+        self.age_entry.grid(row=1, column=1, padx=10, pady=10)
+
+        self.disease_label = tk.Label(self.details_frame, text="Disease:", bg="#D6EAF8", fg="#1C2833")
+        self.disease_label.grid(row=2, column=0, padx=10, pady=10)
+        self.disease_entry = tk.Entry(self.details_frame)
+        self.disease_entry.grid(row=2, column=1, padx=10, pady=10)
+
+        # Add Patient Button
+        self.add_button = tk.Button(self.details_frame, text="Add Patient", command=self.add_patient, bg="#5DADE2", fg="white", font=("Helvetica", 11))
+        self.add_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+    def setup_list_tab(self):
+        # Patient List
+        self.tree = ttk.Treeview(self.list_frame, columns=("Name", "Age", "Disease", "Priority"), show='headings')
+        self.tree.heading("Name", text="Name")
+        self.tree.heading("Age", text="Age")
+        self.tree.heading("Disease", text="Disease")
+        self.tree.heading("Priority", text="Priority")
+        self.tree.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
+
+        # Allocate Room Button
+        self.allocate_button = tk.Button(self.list_frame, text="Allocate Room", command=self.allocate_room, bg="#5DADE2", fg="white", font=("Helvetica", 11))
+        self.allocate_button.grid(row=1, column=0, columnspan=2, pady=10)
+
+    def setup_allocated_tab(self):
+        # Allocated Patients List
+        self.allocated_tree = ttk.Treeview(self.allocated_frame, columns=("Name", "Age", "Disease", "Priority", "Room"), show='headings')
+        self.allocated_tree.heading("Name", text="Name")
+        self.allocated_tree.heading("Age", text="Age")
+        self.allocated_tree.heading("Disease", text="Disease")
+        self.allocated_tree.heading("Priority", text="Priority")
+        self.allocated_tree.heading("Room", text="Room")
+        self.allocated_tree.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
+
+    def add_patient(self):
+        name = self.name_entry.get()
+        age = self.age_entry.get()
+        disease = self.disease_entry.get()
+
+        if name and age and disease:
+            self.hms.add_patient(name, age, disease)
+            self.update_patient_list()
+            self.clear_entries()
+        else:
+            messagebox.showerror("Input Error", "All fields must be filled out!")
+
+    def update_patient_list(self):
+        # Clear current entries in the list
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
+        for patient in self.hms.patients:
+            self.tree.insert("", "end", values=(patient.name, patient.age, patient.disease, patient.priority))
+
+    def allocate_room(self):
+        allocated_patient = self.hms.allocate_room()
+        if allocated_patient:
+            # Add to allocated patients tree
+            self.allocated_tree.insert("", "end", values=(
+                allocated_patient.name,
+                allocated_patient.age,
+                allocated_patient.disease,
+                allocated_patient.priority,
+                allocated_patient.room
+            ))
+            self.update_patient_list()
+
+    def clear_entries(self):
+        self.name_entry.delete(0, tk.END)
+        self.age_entry.delete(0, tk.END)
+        self.disease_entry.delete(0, tk.END)
+
+    def update_time(self):
+        current_time = time.strftime("%H:%M:%S")
+        self.time_label.config(text="Current Time: " + current_time)
+        self.root.after(1000, self.update_time)
+
+    def periodic_priority_update(self):
+        self.hms.update_priorities()
+        self.update_patient_list()
+        self.root.after(60000, self.periodic_priority_update)  # Every 1 minute
+
+
+def on_closing():
+    if app.hms.db_connection:
+        app.hms.db_connection.close()
+    root.destroy()
+
+# Main program execution
+root = tk.Tk()
+app = GUI(root)
+root.protocol("WM_DELETE_WINDOW", on_closing)
+root.mainloop()
