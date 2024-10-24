@@ -6,12 +6,18 @@
      Python
      
  # Libraries Used:
+  
    tkinter: Used to create the graphical user interface (GUI) for the system, including forms, buttons, labels, and other interactive elements.
+  
    messagebox (from tkinter): Displays pop-up dialogs to inform users about errors, confirmations, and other important messages.
+  
    difflib: Used to find close matches for disease names by comparing text inputs with predefined disease lists.
-   random: Used for randomly assigning available rooms to patients.
-   time: Used to record the waiting time of patients and provide real-time clock updates.
-   mysql.connector: Enables interaction with the MySQL database, allowing the system to store and retrieve patient data from the database.
+ 
+  random: Used for randomly assigning available rooms to patients.
+  
+  time: Used to record the waiting time of patients and provide real-time clock updates.
+  
+  mysql.connector: Enables interaction with the MySQL database, allowing the system to store and retrieve patient data from the database.
 
  # keyconcepts:
  Priority Scheduling:
