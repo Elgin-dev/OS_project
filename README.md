@@ -2,7 +2,7 @@
 
 # Overview Of The Project:
  The Hospital Management System is designed to streamline patient care by efficiently managing patient intake, room allocation, and priority-based treatment. It uses a dynamic scheduling system where patients are assigned priorities based on their medical conditions, ensuring that critical cases receive prompt attention. The system employs a Tkinter-based GUI for easy interaction, a MySQL database for storing patient details, and integrates real-time clock updates and priority adjustments. By automating room assignments and enhancing patient management, the system improves hospital workflow and overall patient experience.
- # programming Language:
+ # Programming Language Used:
      Python
      
  # Libraries Used:
